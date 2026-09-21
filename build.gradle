@@ -15,6 +15,11 @@ plugins {
 // enforced by the build rather than by discipline.
 //
 // :app may see :social-contract (Parcelable IPC types, no SDK) and nothing else.
+//
+// Since the 2026-09-21 split this repository contains no :app, so the loop below
+// finds nothing and no-ops. It is deliberately kept rather than deleted: it is
+// the tripwire for anyone who re-adds :app here, and deleting it would delete
+// the only machine-readable record of why the boundary exists.
 // ─────────────────────────────────────────────────────────────────────────────
 gradle.projectsEvaluated {
     def forbidden = ['social-core', 'social-rtc', 'social-ui', 'social']

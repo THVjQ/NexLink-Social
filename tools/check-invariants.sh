@@ -16,6 +16,11 @@ cd "$(dirname "$0")/.."
 fail=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 bad()  { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; fail=1; }
+# A check that cannot run here must SAY so. After the 2026-09-21 repository
+# split two of these live in THVjQ/NexLink, and a check that quietly vanishes
+# is the exact accident §2.1 exists to prevent — as is one that greps a file
+# that no longer exists and reports PASS because it found nothing.
+skip() { printf '  \033[33mSKIP\033[0m  %s\n' "$1"; }
 
 SOCIAL_SRC=(social social-core social-ui social-contract)
 # social-rtc arrives in phase 4 (§33.5); include it once it exists.
@@ -71,15 +76,23 @@ if [ -f "$APP_MANIFEST" ]; then
     bad "and say so in the commit — D1 (§2.2) is what this protects:"
     diff <(echo "$current") "$BASELINE" | sed 's/^/          /'
   fi
+else
+  skip "NexLink's permission set — :app lives in THVjQ/NexLink; run this there (§2.8 #6)"
 fi
 
 # ── :app must not link the social stack (§10.4) ─────────────────────────────
 # The Gradle rule fails the build; this catches the case where someone routes
 # around it. Cheap, and it runs without Gradle.
+if [ ! -f app/build.gradle ] && [ ! -f wear/build.gradle ]; then
+  # Grepping absent files finds nothing, which would print PASS and mean nothing.
+  skip ":app / :wear dependencies — both live in THVjQ/NexLink; run this there (§10.1)"
+  hits=""
+else
 hits=$(grep -nE "project\(':social-(core|rtc|ui)'\)|project\(':social'\)" \
         app/build.gradle wear/build.gradle 2>/dev/null || true)
+fi
 if [ -z "$hits" ]; then
-  pass ":app and :wear declare no forbidden social dependency (§10.1)"
+  :
 else
   bad "forbidden dependency declared:"
   echo "$hits" | sed 's/^/          /'
