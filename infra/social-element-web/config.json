@@ -1,0 +1,116 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "https://nexlink.thvjq.com.au",
+      "server_name": "nexlink.thvjq.com.au"
+    },
+    "m.identity_server": {}
+  },
+  "disable_custom_urls": true,
+  "disable_guests": true,
+  "disable_3pid_login": true,
+  "brand": "NexLink Social",
+  "defaultCountryCode": "AU",
+  "showLabsSettings": false,
+  "element_call": {
+    "url": "https://nexlink.thvjq.com.au/call",
+    "use_exclusively": true
+  },
+  "features": {
+    "feature_video_rooms": false
+  },
+  "integrations_ui_url": null,
+  "integrations_rest_url": null,
+  "integrations_widgets_urls": [],
+  "bug_report_endpoint_url": null,
+  "map_style_url": null,
+  "setting_defaults": {
+    "UIFeature.feedback": false,
+    "UIFeature.registration": false,
+    "UIFeature.identityServer": false,
+    "UIFeature.thirdPartyId": false,
+    "UIFeature.shareQrCode": false,
+    "UIFeature.shareSocial": false,
+    "UIFeature.roomHistorySettings": false,
+    "UIFeature.advancedEncryption": false,
+    "UIFeature.urlPreviews": false,
+    "custom_themes": [
+      {
+        "name": "NexLink Social",
+        "is_dark": true,
+        "colors": {
+          "accent-color": "#6BA6FF",
+          "primary-color": "#6BA6FF",
+          "warning-color": "#FF9B8F",
+          "alert": "#FF9B8F",
+          "sidebar-color": "#0A0E15",
+          "roomlist-background-color": "#141A24",
+          "roomlist-text-color": "#EEF2F8",
+          "roomlist-text-secondary-color": "#96A1B5",
+          "roomlist-highlights-color": "#1E2633",
+          "roomlist-separator-color": "#1E2633",
+          "timeline-background-color": "#0A0E15",
+          "timeline-text-color": "#EEF2F8",
+          "timeline-text-secondary-color": "#96A1B5",
+          "timeline-highlights-color": "#1E2633",
+          "secondary-content": "#96A1B5",
+          "tertiary-content": "#96A1B5",
+          "quaternary-content": "#1E2633",
+          "menu-selected-color": "#1E2633",
+          "focus-bg-color": "#1E2633",
+          "room-highlight-color": "#1E2633",
+          "togglesw-off-color": "#1E2633",
+          "reaction-row-button-selected-bg-color": "#1E5FD1",
+          "other-user-pill-bg-color": "#1E5FD1",
+          "username-colors": [
+            "#6BA6FF",
+            "#8E7CFF",
+            "#2BB3A3",
+            "#E0A33A",
+            "#E06C9F",
+            "#5BA4E8"
+          ]
+        }
+      },
+      {
+        "name": "NexLink Social Light",
+        "is_dark": false,
+        "colors": {
+          "accent-color": "#1257D6",
+          "primary-color": "#1257D6",
+          "warning-color": "#D92D20",
+          "alert": "#D92D20",
+          "sidebar-color": "#F4F6FB",
+          "roomlist-background-color": "#FFFFFF",
+          "roomlist-text-color": "#0C1420",
+          "roomlist-text-secondary-color": "#5A6478",
+          "roomlist-highlights-color": "#EDF1F8",
+          "roomlist-separator-color": "#EDF1F8",
+          "timeline-background-color": "#F4F6FB",
+          "timeline-text-color": "#0C1420",
+          "timeline-text-secondary-color": "#5A6478",
+          "timeline-highlights-color": "#EDF1F8",
+          "secondary-content": "#5A6478",
+          "tertiary-content": "#5A6478",
+          "quaternary-content": "#EDF1F8",
+          "menu-selected-color": "#EDF1F8",
+          "focus-bg-color": "#EDF1F8",
+          "room-highlight-color": "#EDF1F8",
+          "togglesw-off-color": "#EDF1F8",
+          "reaction-row-button-selected-bg-color": "#1257D6",
+          "other-user-pill-bg-color": "#1257D6",
+          "username-colors": [
+            "#1257D6",
+            "#8E7CFF",
+            "#2BB3A3",
+            "#E0A33A",
+            "#E06C9F",
+            "#5BA4E8"
+          ]
+        }
+      }
+    ],
+    "use_system_theme": true
+  },
+  "default_theme": "custom-NexLink Social"
+}

@@ -5,6 +5,7 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -64,6 +65,62 @@ object Notifications {
             )
         }
         return id
+    }
+
+    // ── §8.3.2 an unexpected verification request is a security warning ────
+    //
+    // "A request nobody can see is a warning that was never given" — the
+    // delegate set `incoming` and only the Verify screen was watching, so
+    // asking a phone to verify from Element Web did nothing visible on the
+    // phone unless that exact screen happened to be open.
+    //
+    // Its own channel, not a conversation channel: muting a chat must never
+    // mute the message that says someone is adding a device to your account.
+    private const val CHANNEL_SECURITY = "security"
+    private const val ID_VERIFICATION = 991_001
+
+    private fun securityChannel(context: Context): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return CHANNEL_SECURITY
+        val nm = context.getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CHANNEL_SECURITY) == null) {
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_SECURITY, "Security",
+                    NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Sign-ins and device verification. Not conversation alerts."
+                    setShowBadge(true)
+                }
+            )
+        }
+        return CHANNEL_SECURITY
+    }
+
+    fun showVerificationRequest(context: Context, deviceName: String?) {
+        val tap = PendingIntent.getActivity(
+            context, 8401,
+            VerifyActivity.intent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val who = deviceName?.takeIf { it.isNotBlank() }
+        val n = NotificationCompat.Builder(context, securityChannel(context))
+            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setContentTitle("Verify a new sign-in")
+            .setContentText(
+                if (who != null) "$who is asking to be verified. Tap if this is you."
+                else "A device is asking to be verified. Tap if this is you.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                (if (who != null) "\"$who\" is asking to be verified. " else "A device is asking to be verified. ") +
+                "If you did not just sign in somewhere, do NOT accept — someone else " +
+                "may have your password."))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setAutoCancel(true)
+            .setContentIntent(tap)
+            .build()
+        NotificationManagerCompat.from(context).notify(ID_VERIFICATION, n)
+    }
+
+    fun dismissVerificationRequest(context: Context) {
+        NotificationManagerCompat.from(context).cancel(ID_VERIFICATION)
     }
 
     fun show(

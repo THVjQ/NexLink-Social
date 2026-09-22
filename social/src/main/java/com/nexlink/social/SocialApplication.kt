@@ -64,6 +64,33 @@ class SocialApplication : Application() {
      * what NexLink's unified inbox reads at Level 0 (§16.2).
      */
     private fun watchForNewMessages() {
+        // §8.3.2 — an unexpected verification request is a security warning, and
+        // it was only ever visible on the Verify screen. The delegate fired,
+        // `incoming` updated, and nobody outside that one screen was watching —
+        // so asking a phone to verify from Element Web did nothing the owner of
+        // the phone could see. "A request nobody can see is a warning that was
+        // never given."
+        scope.launch {
+            sessions.state.collectLatest { st ->
+                if (st !is com.nexlink.social.core.session.SessionState.SignedIn) {
+                    Notifications.dismissVerificationRequest(this@SocialApplication)
+                    return@collectLatest
+                }
+                val session = sessions.current() as? com.nexlink.social.core.rust.RustSocialSession
+                    ?: return@collectLatest
+                // startVerification() is lazy and cached — the SDK has ONE
+                // delegate slot, so this returns the controller startSync
+                // already created rather than unhooking it.
+                val v = runCatching { session.startVerification() }.getOrNull()
+                    ?: return@collectLatest
+                v.incoming.collectLatest { req ->
+                    if (req == null) Notifications.dismissVerificationRequest(this@SocialApplication)
+                    else Notifications.showVerificationRequest(
+                        this@SocialApplication, req.deviceDisplayName)
+                }
+            }
+        }
+
         scope.launch {
             sessions.state.collectLatest {
                 val s = sessions.current() ?: return@collectLatest
