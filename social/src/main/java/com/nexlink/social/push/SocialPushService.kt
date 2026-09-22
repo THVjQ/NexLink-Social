@@ -5,6 +5,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.nexlink.social.Notifications
 import com.nexlink.social.SocialApplication
+import com.nexlink.social.SocialPrefs
 import com.nexlink.social.SessionProvider
 import com.nexlink.social.core.session.RoomId
 import com.nexlink.social.core.rust.RustSocialSession
@@ -124,8 +125,22 @@ class SocialPushService : FirebaseMessagingService() {
                 return@runBlocking
             }
 
+            val started = android.os.SystemClock.elapsedRealtime()
             val resolved = withTimeoutOrNull(RESOLVE_BUDGET_MS) {
-                runCatching { Resolver.resolve(session, RoomId(roomId), eventId) }.getOrNull()
+                runCatching { Resolver.resolve(session, RoomId(roomId), eventId) }
+                    .onFailure { Log.w(TAG, "resolve failed: ${it.javaClass.simpleName}") }
+                    .getOrNull()
+            }
+            val took = android.os.SystemClock.elapsedRealtime() - started
+            if (resolved == null) {
+                // §13.3.2's fallback is "New message", which is honest but says
+                // nothing. It firing is a SIGNAL, not a normal outcome — either
+                // the decrypt is slower than the budget or it failed — and it
+                // used to be indistinguishable from success in the log, which is
+                // how a notification reading "New message" for every push went
+                // unnoticed.
+                Log.w(TAG, "resolve produced nothing after ${took}ms — " +
+                           "posting the generic fallback")
             }
 
             // §13.4.2 — two pushes that must never become a notification.
@@ -141,6 +156,10 @@ class SocialPushService : FirebaseMessagingService() {
             // make it go away because nothing here was looking.
             val open = (application as? SocialApplication)?.openRoomId
             if (resolved?.senderIsMe == true || roomId == open) {
+                // Both suppression paths were silent, so a push that vanished
+                // looked identical to a push that never arrived.
+                Log.i(TAG, "suppressed: " +
+                    (if (resolved?.senderIsMe == true) "own message" else "room is open"))
                 Notifications.dismiss(applicationContext, RoomId(roomId))
                 return@runBlocking
             }
@@ -154,8 +173,9 @@ class SocialPushService : FirebaseMessagingService() {
                 // would like and nothing that is untrue.
                 body = resolved?.body ?: "New message",
                 timestamp = System.currentTimeMillis(),
-                showContent = true
+                showContent = SocialPrefs.showNotificationContent(applicationContext)
             )
+            Log.i(TAG, "notification posted (resolved=${resolved != null}, ${took}ms)")
         }
     }
 
@@ -170,6 +190,12 @@ class SocialPushService : FirebaseMessagingService() {
          * posts whichever it has — same outcome, one notification instead of
          * two, and no flicker to correct.
          */
-        const val RESOLVE_BUDGET_MS = 2_500L
+        // Raised from 2500. A cold push wakes a dead process, restores the
+        // session, starts sync and decrypts — and on a real handset that ran
+        // past 2.5 seconds often enough that "New message" was the normal
+        // outcome rather than the exception. FCM allows ~10s before the process
+        // may be killed, so spending 6 of them on the thing the notification is
+        // FOR is the right trade.
+        const val RESOLVE_BUDGET_MS = 6_000L
     }
 }

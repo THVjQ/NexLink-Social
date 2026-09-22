@@ -32,6 +32,9 @@ class SocialApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // §14.16.1 — before anything inflates, so a chosen theme does not
+        // arrive one frame late as a flash of the other one.
+        SocialPrefs.apply(SocialPrefs.theme(this))
         // §4.7 — the acceptance gate lives in :social-ui and cannot see this
         // activity, so the route is handed to it rather than imported.
         com.nexlink.social.ui.onboarding.AcceptanceGateActivity.policyOpener =
@@ -145,7 +148,10 @@ class SocialApplication : Application() {
             senderName = room.title,
             body = room.lastMessagePreview ?: "New message",
             timestamp = if (room.lastMessageAt > 0) room.lastMessageAt else System.currentTimeMillis(),
-            showContent = true
+            // The in-app watcher and the push path must agree, or the
+            // setting appears to work only sometimes — which reads as a bug
+            // in the setting rather than in the two call sites.
+            showContent = SocialPrefs.showNotificationContent(this)
         )
     }
 }

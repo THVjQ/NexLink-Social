@@ -104,6 +104,33 @@ class SettingsActivity : AppCompatActivity() {
                 onClick = { startActivity(DevicesActivity.intent(this@SettingsActivity)) }))
         }
 
+        // ── how it looks and what it gives away ────────────────────────────
+        c.addView(chrome.sectionHeader("Appearance"))
+        card(c) {
+            add(chrome.infoRow(
+                label = "Theme",
+                value = SocialPrefs.themeLabel(this@SettingsActivity),
+                detail = "Follow system, or pin it to light or dark.",
+                onClick = { chooseTheme() }))
+        }
+
+        c.addView(chrome.sectionHeader("Notifications"))
+        card(c) {
+            val on = SocialPrefs.showNotificationContent(this@SettingsActivity)
+            add(chrome.infoRow(
+                label = "Show message content",
+                value = if (on) "On" else "Off",
+                detail = if (on)
+                    "Notifications show who sent what. Anyone who can see your "
+                        + "screen can read them without unlocking."
+                else
+                    "Notifications say only that a message arrived.",
+                onClick = {
+                    SocialPrefs.setShowNotificationContent(this@SettingsActivity, !on)
+                    render()
+                }))
+        }
+
         // ── people ─────────────────────────────────────────────────────────
         c.addView(chrome.sectionHeader("People"))
         card(c) {
@@ -154,6 +181,23 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         c.addView(chrome.note("NexLink Social ${versionLabel()}"))
+    }
+
+    private fun chooseTheme() {
+        val labels = arrayOf("Follow system", "Light", "Dark")
+        val values = arrayOf(SocialPrefs.THEME_SYSTEM, SocialPrefs.THEME_LIGHT, SocialPrefs.THEME_DARK)
+        val current = values.indexOf(SocialPrefs.theme(this)).coerceAtLeast(0)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Theme")
+            .setSingleChoiceItems(labels, current) { d, which ->
+                SocialPrefs.setTheme(this, values[which])
+                d.dismiss()
+                // setDefaultNightMode recreates the activity itself; render()
+                // afterwards would run against a dead view tree.
+                recreate()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private inline fun card(parent: LinearLayout, build: LinearLayout.() -> Unit) {
