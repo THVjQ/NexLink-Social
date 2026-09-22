@@ -76,7 +76,7 @@ internal fun TimelineItemContent.toRoomPreview(): String? {
     }
 }
 
-internal fun TimelineContent.toPreview(): String = when (this) {
+fun TimelineContent.toPreview(): String = when (this) {
     // §14.4.3 — take() counts UTF-16 code units and will split a surrogate
     // pair. Graphemes.truncate walks grapheme clusters instead.
     is TimelineContent.Text ->
@@ -84,7 +84,9 @@ internal fun TimelineContent.toPreview(): String = when (this) {
     is TimelineContent.Image -> "Photo"
     is TimelineContent.Video -> "Video"
     is TimelineContent.Audio -> "Audio message"
-    is TimelineContent.File -> "File"
+    // The filename is the informative part, and the only part a reader can
+    // act on. "File" tells them nothing they could not already see.
+    is TimelineContent.File -> displayName.ifBlank { "File" }
     is TimelineContent.Redacted -> "Message deleted"
     // §14.2.3 — the inbox says the same thing the timeline does, in fewer words.
     is TimelineContent.Undecryptable -> "Can't decrypt this message"

@@ -107,12 +107,18 @@ class ShareActivity : AppCompatActivity() {
         val dir = File(cacheDir, "share").apply { mkdirs() }
         // Anything left from a previous share is dead weight; this is the only
         // place that knows the directory's purpose, so it is the place to sweep.
-        dir.listFiles()?.forEach { runCatching { it.delete() } }
+        dir.listFiles()?.forEach { runCatching { it.deleteRecursively() } }
         uris.mapNotNull { uri ->
             runCatching {
                 val type = contentResolver.getType(uri).orEmpty()
                 val name = displayName(uri) ?: "shared"
-                val out = File(dir, "${System.nanoTime()}-${name.take(64).replace('/', '_')}")
+                // The file keeps its ORIGINAL name inside a unique directory rather
+                // than getting a unique name. The SDK sends the basename, so a
+                // prefix would arrive in someone else's conversation as
+                // "1789170276946-report.pdf" — an internal detail leaking out.
+                val safe = name.replace('/', '_').ifBlank { "shared" }.take(96)
+                val sub = File(dir, System.nanoTime().toString()).apply { mkdirs() }
+                val out = File(sub, safe)
                 contentResolver.openInputStream(uri)!!.use { input ->
                     out.outputStream().use { input.copyTo(it) }
                 }
@@ -272,7 +278,7 @@ class ShareActivity : AppCompatActivity() {
                 val uri = Uri.fromFile(item.file).toString()
                 val res = if (item.isImage) s.sendImage(rid, uri) else s.sendFile(rid, uri)
                 if (res.isFailure) failures++
-                runCatching { item.file.delete() }
+                runCatching { item.file.delete(); item.file.parentFile?.delete() }
             }
             sharedText?.let {
                 if (s.send(rid, MessageBody.Text(it, replyTo = null)).isFailure) failures++

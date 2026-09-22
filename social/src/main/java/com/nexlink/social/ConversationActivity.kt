@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.nexlink.social.call.CallActivity
+import com.nexlink.social.core.rust.toPreview
 import com.nexlink.social.core.session.MessageBody
 import com.nexlink.social.core.session.MessageState
 import com.nexlink.social.core.session.RoomId
@@ -450,7 +451,11 @@ class ConversationActivity : AppCompatActivity() {
             replyBar.visibility = if (r == null) View.GONE else View.VISIBLE
             if (r != null) replyLabel.text = buildString {
                 append("Replying to ${r.senderDisplayName}\n")
-                append((r.content as? TimelineContent.Text)?.body?.take(80) ?: "message")
+                // Anything that is not text used to render as the literal word
+                // "message", which is the least informative thing available and
+                // makes replying to a photo or a file look broken. toPreview() is
+                // the same vocabulary the inbox uses, so the two agree.
+                append(r.content.toPreview().take(80))
             }
         }
 

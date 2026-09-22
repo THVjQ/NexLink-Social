@@ -854,15 +854,26 @@ class RustSocialSession private constructor(
         val uri = android.net.Uri.parse(localUri)
         val resolver = ctx.contentResolver
 
+        // §14.5.2 — OpenableColumns only answers for a content:// URI. A
+        // file:// URI returns null from query(), which left `name` at its
+        // default and sent every such file as "file" with no extension: a PDF
+        // arriving in someone else's conversation with no name and no type.
+        // The share sheet (§14.15) hands over file:// URIs, so this was every
+        // file shared from another app.
         var name = "file"
         var size = 0L
-        runCatching {
-            resolver.query(uri, null, null, null, null)?.use { c ->
-                if (c.moveToFirst()) {
-                    val ni = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    val si = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
-                    if (ni >= 0) name = c.getString(ni) ?: name
-                    if (si >= 0) size = c.getLong(si)
+        if (uri.scheme == "file") {
+            uri.lastPathSegment?.takeIf { it.isNotBlank() }?.let { name = it }
+            uri.path?.let { size = java.io.File(it).length() }
+        } else {
+            runCatching {
+                resolver.query(uri, null, null, null, null)?.use { c ->
+                    if (c.moveToFirst()) {
+                        val ni = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        val si = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                        if (ni >= 0) name = c.getString(ni) ?: name
+                        if (si >= 0) size = c.getLong(si)
+                    }
                 }
             }
         }
