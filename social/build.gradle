@@ -105,7 +105,15 @@ android {
 
     signingConfigs {
         release {
-            storeFile     rootProject.file("app/${keystoreProperties['storeFile'] ?: 'nexlink-release.jks'}")
+            // The keystore sat under app/ when this module lived in the NexLink
+            // repository. There is no :app here since the 2026-09-21 split, so
+            // look in the root first and keep the old location working — a
+            // release that builds UNSIGNED does so silently, and Play rejects it
+            // only after the 102 MB upload.
+            storeFile     files(
+                rootProject.file(keystoreProperties['storeFile'] ?: 'nexlink-release.jks'),
+                rootProject.file("app/${keystoreProperties['storeFile'] ?: 'nexlink-release.jks'}")
+            ).find { it.exists() } ?: rootProject.file('nexlink-release.jks')
             storePassword keystoreProperties['storePassword']
             keyAlias      keystoreProperties['keyAlias'] ?: 'nexlink'
             keyPassword   keystoreProperties['keyPassword']
@@ -129,7 +137,14 @@ android {
             ]
         }
         release {
-            if (keystorePropertiesFile.exists()) signingConfig signingConfigs.release
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                // Without this the bundle builds unsigned and nothing says so
+                // until Play refuses it: "All uploaded bundles must be signed."
+                logger.warn("WARNING :social — no keystore.properties, the release "
+                          + "bundle will be UNSIGNED and Play will reject it (§10.5.1)")
+            }
             // §10.6.3 — R8 from the FIRST release. Retrofitting minification to
             // a large app with reflection-based SDK code is painful; starting
             // with it means keep-rules grow alongside the code that needs them.
