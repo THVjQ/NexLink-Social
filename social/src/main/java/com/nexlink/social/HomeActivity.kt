@@ -442,53 +442,19 @@ class HomeActivity : AppCompatActivity() {
                 add("Sign in" to { signIn.launch(SignInActivity.intent(this@HomeActivity)) })
                 return@buildList
             }
-            // §9.5 — first, because inviting someone is the only item here a
-            // user has a reason to open twice.
+            // §14.16 — three items, not eleven. A menu long enough to read is
+            // not a shortcut, and a FLAT list of eleven put "Recovery key"
+            // beside "Buy me a coffee" with nothing to say that one of them
+            // decides whether your message history survives losing the phone.
+            //
+            // These three earn their place: inviting someone is the only item
+            // a user opens twice, Settings is where everything else now lives,
+            // and Sign out stays reachable without hunting for it.
             add("Invite someone" to { startActivity(InviteActivity.intent(this@HomeActivity)) })
-            add("Verify this device" to { startActivity(VerifyActivity.intent(this@HomeActivity)) })
-            // §7.4 — reachable ALWAYS, not only through the warning banner.
-            // The banner disappears the moment recovery is set up, which left
-            // the only route to your recovery key behind a condition that is
-            // false exactly when you have a key to worry about.
-            add("Recovery key" to { startActivity(RecoverySetupActivity.intent(this@HomeActivity)) })
-            add("Your devices" to { startActivity(DevicesActivity.intent(this@HomeActivity)) })
-            add("Blocked people" to { startActivity(BlockedActivity.intent(this@HomeActivity)) })
-            add("Export my messages" to { startActivity(ExportActivity.intent(this@HomeActivity)) })
-            add("Storage" to { startActivity(StorageActivity.intent(this@HomeActivity)) })
-            // The same link NexLink carries in its settings (§10.5 — two
-            // products, one person paying for both). Above Sign out, because
-            // Sign out stays last.
-            // §4.7 — reachable after signing up, not only inside the gate.
-            // Someone who accepted terms six months ago must still be able to
-            // read what they accepted.
-            add("Terms of Service" to {
-                startActivity(PolicyActivity.intent(this@HomeActivity, PolicyActivity.DOC_TERMS))
-            })
-            add("Privacy Policy" to {
-                startActivity(PolicyActivity.intent(this@HomeActivity, PolicyActivity.DOC_PRIVACY))
-            })
-            add("Buy me a coffee" to { openCoffee() })
+            add("Settings" to { startActivity(SettingsActivity.intent(this@HomeActivity)) })
             add("Sign out" to { confirmSignOut() })
         }
         chrome.menu(anchor, items)
-    }
-
-    /**
-     * §10.5 — the same link NexLink's settings screen uses.
-     *
-     * `resolveActivity` is not consulted first: a phone with no browser at all
-     * is vanishingly rare, and `ActivityNotFoundException` is the honest way to
-     * find out rather than hiding the row on a guess.
-     */
-    private fun openCoffee() {
-        val i = android.content.Intent(
-            android.content.Intent.ACTION_VIEW,
-            android.net.Uri.parse(COFFEE_URL)
-        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { startActivity(i) }.onFailure {
-            Snackbar.make(findViewById(android.R.id.content),
-                "No app on this phone can open a link", Snackbar.LENGTH_LONG).show()
-        }
     }
 
     /**
@@ -609,7 +575,6 @@ class HomeActivity : AppCompatActivity() {
 
     private companion object {
         /** Kept identical to :app's SettingsFragment. */
-        const val COFFEE_URL = "https://buymeacoffee.com/THVjQ"
         const val MATCH = LinearLayout.LayoutParams.MATCH_PARENT
         const val WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
     }

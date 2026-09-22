@@ -296,9 +296,16 @@ class InviteActivity : AppCompatActivity() {
     private fun share(i: Invite) {
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
+            // §9.5.3 — the code alone is useless to someone who does not have
+            // the app, and "search for NexLink Social" is a worse instruction
+            // than a link. The store link goes FIRST: the person receiving this
+            // has to install before the code means anything.
+            putExtra(Intent.EXTRA_SUBJECT, "Your invite to NexLink Social")
             putExtra(Intent.EXTRA_TEXT,
-                "Here's your invite code for NexLink Social: ${i.formatted}\n\n" +
-                    "Install the app, choose \"I have an invite code\", and enter it.")
+                "You've been invited to NexLink Social.\n\n" +
+                    "1. Install the app:\n$PLAY_URL\n\n" +
+                    "2. Choose \"I have an invite code\" and enter:\n${i.formatted}\n\n" +
+                    "The code works once, and only for you.")
         }, "Share invite code"))
     }
 
@@ -316,6 +323,17 @@ class InviteActivity : AppCompatActivity() {
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     companion object {
+        /**
+         * The Play listing for this app.
+         *
+         * NOTE: while the app is in closed testing this link only resolves for
+         * an account on the tester list — everyone else sees "item not found".
+         * That is a property of the track, not of the link, and it starts
+         * working the moment there is a production release.
+         */
+        const val PLAY_URL =
+            "https://play.google.com/store/apps/details?id=com.thvjq.nexlink.social"
+
         private const val MATCH = LinearLayout.LayoutParams.MATCH_PARENT
         private const val WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
         fun intent(c: Context) = Intent(c, InviteActivity::class.java)
