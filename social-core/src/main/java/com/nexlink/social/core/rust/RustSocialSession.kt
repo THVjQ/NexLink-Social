@@ -34,6 +34,7 @@ import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.RoomInfo
 import org.matrix.rustcomponents.sdk.Room as SdkRoom
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
+import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListService
@@ -211,6 +212,36 @@ class RustSocialSession private constructor(
                 }
             }
         )
+        // §14.1.1 — SET A FILTER, or the listener never fires at all.
+        //
+        // `entriesWithDynamicAdapters` returns a controller whose stream stays
+        // empty until a filter is applied. Without this call `entries` was
+        // always empty, so every inbox was really being built by refreshRooms'
+        // `client.rooms()` fallback — a one-shot snapshot taken at sync start
+        // and never updated again, because the listener that would update it
+        // could not fire.
+        //
+        // The symptom: a room created or joined after sync started never
+        // appeared. A conversation with a message in it was simply absent from
+        // the inbox, on both the sending and the receiving account, and nothing
+        // reported an error. The earlier "a new DM does not appear" fix — an
+        // explicit refreshRooms() inside startDirectMessage — was treating this
+        // same cause one call site at a time.
+        //
+        // NonLeft rather than Joined: an invitation must still list (§14.8), and
+        // Joined would drop it.
+        val applied = runCatching {
+            roomListHandle?.controller()?.setFilter(RoomListEntriesDynamicFilterKind.NonLeft)
+        }.getOrNull()
+        if (applied != true) {
+            // Not fatal — the client.rooms() fallback still yields a usable
+            // inbox — but it silently stops updating, so it must be visible.
+            android.util.Log.w(
+                "NexLinkSocial",
+                "room list filter not applied; the inbox will not update by itself"
+            )
+        }
+
         // Seed once — the listener only fires on change, and an empty inbox on
         // first launch would look like an empty account.
         runCatching { refreshRooms() }
