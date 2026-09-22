@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexLink Social — Your account</title>
+<meta name="description" content="Sign in to manage your NexLink Social account: your devices, your invites, and deleting your account.">
+<meta name="robots" content="noindex">
+<style>
+/*
+ * §32.4 — the account page.
+ *
+ * Element Web still does the messaging. This is the surface a person meets
+ * BEFORE that: what the service is, how to get the app, and the account
+ * operations that should not require installing anything — which §1.2 and
+ * §4.2.1 already demanded for deletion.
+ *
+ * The palette is the app's own (social-ui values/colors.xml), so the web and
+ * the phone read as one product rather than two.
+ *
+ * NO BACKEND. Everything here is the Matrix client-server API called with the
+ * user's own credentials, same-origin. Nothing privileged is served from this
+ * page, and there is no server-side session to steal.
+ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F4F6FB; --surface:#FFFFFF; --surface2:#EDF1F8;
+  --border:rgba(16,24,40,.10); --text:#111826; --muted:#5A6478;
+  --accent:#1257D6; --accent-fill:#1257D6; --on-accent:#FFFFFF;
+  --danger:#B42318; --ok:#067647; --r:14px;
+}
+:root:not([data-theme="light"]) { }
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A0E15; --surface:#141A24; --surface2:#1E2633;
+    --border:rgba(255,255,255,.10); --text:#E9EEF7; --muted:#96A1B5;
+    --accent:#6BA6FF; --accent-fill:#1E5FD1; --on-accent:#FFFFFF;
+    --danger:#FF9B8F; --ok:#6BD79B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A0E15; --surface:#141A24; --surface2:#1E2633;
+  --border:rgba(255,255,255,.10); --text:#E9EEF7; --muted:#96A1B5;
+  --accent:#6BA6FF; --accent-fill:#1E5FD1; --on-accent:#FFFFFF;
+  --danger:#FF9B8F; --ok:#6BD79B;
+}
+body{background:var(--bg);color:var(--text);
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:0 20px;padding-block:40px 72px}
+.wrap{max-width:640px;margin:0 auto}
+h1{font-size:clamp(1.7rem,5vw,2.3rem);letter-spacing:-.02em;line-height:1.15;text-wrap:balance;margin-bottom:8px}
+h2{font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+   font-weight:600;margin:30px 0 10px}
+p{margin-bottom:12px}
+.lede{color:var(--muted);margin-bottom:22px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:18px 20px;margin-bottom:12px}
+.row{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;
+  padding:13px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.row .k{font-weight:600}
+.row .d{color:var(--muted);font-size:.9rem;margin-top:2px}
+.row .v{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+label{display:block;font-size:.85rem;color:var(--muted);margin:12px 0 5px}
+input{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);font-size:16px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:12px 22px;
+  background:var(--accent-fill);color:var(--on-accent);cursor:pointer}
+button:hover{filter:brightness(1.08)}
+button:disabled{opacity:.55;cursor:default}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--border)}
+button.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+a{color:var(--accent)}
+code{background:var(--surface2);padding:2px 6px;border-radius:5px;font-size:.88em}
+.note{background:var(--surface2);border-radius:10px;padding:13px 15px;color:var(--muted);
+  font-size:.92rem;margin-bottom:12px}
+.err{color:var(--danger);font-size:.92rem;margin-top:10px;min-height:1.2em}
+.badge{display:inline-block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;background:var(--surface2);color:var(--muted);font-weight:600}
+.badge.ok{color:var(--ok)}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:.87rem}
+footer a{margin-right:14px;display:inline-block}
+[hidden]{display:none!important}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ── signed out: what this is, and how to get in ───────────────────── -->
+  <section id="out">
+    <h1>NexLink Social</h1>
+    <p class="lede">A private, invite-only messenger. Messages and calls are
+      end-to-end encrypted — the server stores them scrambled and has never had
+      the keys.</p>
+
+    <div class="note">
+      This page manages your account: your devices, your invites, and deleting
+      your account. <strong>It is not where you read your messages</strong> —
+      use the app, or <a href="/">open NexLink Social in this browser</a>.
+    </div>
+
+    <h2>Sign in</h2>
+    <div class="card">
+      <label for="u">Username</label>
+      <input id="u" autocomplete="username" spellcheck="false" placeholder="yourname">
+      <label for="p">Password</label>
+      <input id="p" type="password" autocomplete="current-password">
+      <div class="btns">
+        <button id="go">Sign in</button>
+        <a href="/" style="align-self:center">Open the messenger</a>
+      </div>
+      <div class="err" id="e1"></div>
+    </div>
+
+    <h2>Don't have the app?</h2>
+    <div class="card">
+      <div class="row">
+        <div><div class="k">Android</div><div class="d">You need an invite code from someone already using it.</div></div>
+      </div>
+      <div class="btns">
+        <button class="ghost" onclick="location.href='https://play.google.com/store/apps/details?id=com.thvjq.nexlink.social'">Get it on Google Play</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── signed in: the account ────────────────────────────────────────── -->
+  <section id="in" hidden>
+    <h1>Your account</h1>
+    <p class="lede" id="who"></p>
+
+    <h2>Devices</h2>
+    <div class="card" id="devices"><span class="spin"></span> Loading…</div>
+
+    <h2>Invites</h2>
+    <div class="card" id="invites"><span class="spin"></span> Loading…</div>
+
+    <h2>Your messages</h2>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="k">They are not here</div>
+          <div class="d">Your message history lives on your devices, not on this
+            page and not in readable form on the server. Export it from the app,
+            under Settings.</div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Danger zone</h2>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="k">Delete your account</div>
+          <div class="d">Permanent. Your username is never reissued, and your
+            message history cannot be recovered afterwards.</div>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="danger" onclick="location.href='/delete/'">Delete account</button>
+        <button class="ghost" id="out-btn">Sign out</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/">Messenger</a>
+    <a href="https://thvjq.com.au/nexlink/legal/terms/">Terms</a>
+    <a href="https://thvjq.com.au/nexlink/legal/privacy/">Privacy</a>
+    <a href="https://thvjq.com.au/nexlink/contact/">Contact</a>
+    <div style="margin-top:10px">nexlink.thvjq.com.au</div>
+  </footer>
+</div>
+
+<script>
+// The token lives in sessionStorage, so it is gone when the tab closes and is
+// never written to disk. It is the user's own token obtained with their own
+// password; this page has no credentials of its own and no server side.
+const S = sessionStorage, HS = '';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function api(path, opts = {}) {
+  const t = S.getItem('tok');
+  const r = await fetch(HS + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json',
+               ...(t ? { Authorization: 'Bearer ' + t } : {}), ...(opts.headers || {}) },
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(body.error || r.statusText), { status: r.status, body });
+  return body;
+}
+
+function when(ms) {
+  if (!ms) return '';
+  const d = Math.floor((Date.now() - ms) / 86400000);
+  if (d === 0) return 'today';
+  if (d === 1) return 'yesterday';
+  if (d < 30) return d + 'd ago';
+  return new Date(ms).toLocaleDateString();
+}
+
+$('go').onclick = async () => {
+  const u = $('u').value.trim().replace(/^@/, '').split(':')[0].toLowerCase();
+  const p = $('p').value;
+  $('e1').textContent = ''; $('go').disabled = true;
+  try {
+    const r = await api('/_matrix/client/v3/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'm.login.password',
+        identifier: { type: 'm.id.user', user: u },
+        password: p,
+        initial_device_display_name: 'NexLink account page',
+      }),
+    });
+    S.setItem('tok', r.access_token);
+    S.setItem('me', r.user_id);
+    S.setItem('dev', r.device_id);
+    show();
+  } catch (err) {
+    // Say which of the two it is, because "invalid" sends people round in circles.
+    $('e1').textContent = err.status === 429
+      ? 'Too many attempts. Wait a minute and try again.'
+      : err.status === 403 ? 'That username and password do not match.'
+      : 'Could not sign in: ' + err.message;
+  } finally { $('go').disabled = false; }
+};
+
+$('out-btn').onclick = async () => {
+  try { await api('/_matrix/client/v3/logout', { method: 'POST', body: '{}' }); } catch {}
+  S.clear(); location.reload();
+};
+
+async function show() {
+  $('out').hidden = true; $('in').hidden = false;
+  $('who').textContent = S.getItem('me');
+  loadDevices(); loadInvites();
+}
+
+async function loadDevices() {
+  const el = $('devices');
+  try {
+    const { devices = [] } = await api('/_matrix/client/v3/devices');
+    const mine = S.getItem('dev');
+    devices.sort((a, b) => (b.last_seen_ts || 0) - (a.last_seen_ts || 0));
+    el.innerHTML = devices.map(d => `
+      <div class="row">
+        <div>
+          <div class="k">${esc(d.display_name || 'Unnamed device')}
+            ${d.device_id === mine ? '<span class="badge ok">This browser</span>' : ''}</div>
+          <div class="d"><code>${esc(d.device_id)}</code>${d.last_seen_ip ? ' · ' + esc(d.last_seen_ip) : ''}</div>
+        </div>
+        <div class="v">${esc(when(d.last_seen_ts))}</div>
+      </div>`).join('') +
+      `<div class="d" style="margin-top:12px">A device you do not recognise means
+        someone else has your password. Change it in the app and remove the device there.</div>`;
+  } catch (e) { el.innerHTML = `<div class="err">Could not load devices: ${esc(e.message)}</div>`; }
+}
+
+async function loadInvites() {
+  const el = $('invites');
+  try {
+    // The operator's own module — §9.5.1. Any signed-in user may issue codes.
+    const { invites = [] } = await api('/_matrix/nexlink/v1/invite');
+    const open = invites.filter(i => !i.redeemed_at);
+    el.innerHTML = (open.length
+      ? open.map(i => `
+        <div class="row">
+          <div><div class="k"><code>${esc(i.code || '—')}</code></div>
+               <div class="d">Created ${esc(when(i.created_at))} · single use</div></div>
+          <div class="v">unused</div>
+        </div>`).join('')
+      : '<div class="row"><div><div class="k">No unused invites</div><div class="d">Create one in the app, under Settings → Invite someone.</div></div></div>')
+      + `<div class="d" style="margin-top:12px">Invites are created in the app. This page
+         shows what is still outstanding so you can see who is owed one.</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="row"><div><div class="k">Invites are managed in the app</div>
+      <div class="d">Settings → Invite someone.</div></div></div>`;
+  }
+}
+
+if (S.getItem('tok')) show();
+</script>
+</body>
+</html>
