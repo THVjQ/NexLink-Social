@@ -99,6 +99,24 @@ android {
         // APK that will not install on some phone nobody thought to check, and
         // "it just fails on that handset" is a bad trade for a smaller file.
         if (project.hasProperty('abi')) {
+            // -Pabi applies to defaultConfig, so it filters EVERY variant —
+            // including the Play bundle. Built that way the .aab carried one
+            // ABI and weighed 28 MB instead of 102 MB, and Play would have
+            // accepted it: armeabi-v7a and x86_64 users simply could not have
+            // installed. Caught by the size, not by any error.
+            //
+            // The flag exists for the sideload APK. Refuse it for a bundle
+            // rather than produce a crippled one that looks fine.
+            def wantsBundle = gradle.startParameter.taskNames.any {
+                it.toLowerCase().contains('bundle')
+            }
+            if (wantsBundle) {
+                throw new GradleException(
+                    "-Pabi must not be used with a bundle task.\n" +
+                    "  It filters every variant, so the .aab would ship one ABI and\n" +
+                    "  no other architecture could install it. Build the bundle\n" +
+                    "  without -Pabi, and the sideload APK separately with it.")
+            }
             ndk { abiFilters project.property('abi').split(',') }
         }
     }
