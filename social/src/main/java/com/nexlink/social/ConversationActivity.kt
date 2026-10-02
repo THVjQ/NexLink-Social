@@ -364,33 +364,62 @@ class ConversationActivity : AppCompatActivity() {
      * for none it can avoid.
      */
     private val pickImage = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri ->
+        androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
         val rid = roomId ?: return@registerForActivityResult
-        if (uri == null) return@registerForActivityResult
+        if (uris.isEmpty()) return@registerForActivityResult
         lifecycleScope.launch {
             val s = SessionProvider.manager(this@ConversationActivity).current() ?: return@launch
             sending = true; render(lastItems, null)
-            s.sendImage(rid, uri.toString())
-                .onFailure { render(lastItems, error = "Couldn't send that image: ${it.message}") }
+            // §14.5.4 — sent one at a time, IN ORDER, and a failure does not
+            // abandon the rest.
+            //
+            // Sequential rather than parallel on purpose: each upload encrypts
+            // and uploads a file, and firing ten at once on a phone's uplink
+            // makes all ten slow and the first one no faster. Order matters
+            // because a set of photos usually tells a story in the order the
+            // sender picked them, and concurrent uploads would arrive shuffled.
+            var failed = 0
+            uris.forEachIndexed { i, uri ->
+                if (uris.size > 1) {
+                    render(lastItems, error = null)
+                    progress = "Sending ${i + 1} of ${uris.size}…"
+                }
+                s.sendImage(rid, uri.toString()).onFailure { failed++ }
+            }
+            progress = null
             sending = false
+            if (failed > 0) render(lastItems, error =
+                if (failed == uris.size) "None of those photos could be sent."
+                else "$failed of ${uris.size} photos couldn't be sent.")
+            else render(lastItems, null)
         }
     }
 
     /** §14.5.3 — anything that is not a photo. Sent as-is, size-capped. */
     private val pickFile = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri ->
+        androidx.activity.result.contract.ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
         val rid = roomId ?: return@registerForActivityResult
-        if (uri == null) return@registerForActivityResult
+        if (uris.isEmpty()) return@registerForActivityResult
         lifecycleScope.launch {
             val s = SessionProvider.manager(this@ConversationActivity).current() ?: return@launch
             sending = true; render(lastItems, null)
-            s.sendFile(rid, uri.toString())
-                .onFailure { render(lastItems, error = it.message ?: "Couldn't send that file.") }
+            var lastError: String? = null
+            uris.forEachIndexed { i, uri ->
+                if (uris.size > 1) progress = "Sending ${i + 1} of ${uris.size}…"
+                s.sendFile(rid, uri.toString()).onFailure { lastError = it.message }
+            }
+            progress = null
             sending = false
+            // The size cap is the usual failure here and its message names the
+            // file, so the last one is worth more than a count.
+            render(lastItems, error = lastError)
         }
     }
+
+    /** Shown while a multi-item send is in flight — §14.5.4. */
+    private var progress: String? = null
 
     private var lastItems: List<TimelineItem> = emptyList()
     private var sending = false
@@ -477,7 +506,10 @@ class ConversationActivity : AppCompatActivity() {
             list.addView(messageRow(item, grouped))
             previous = item
         }
-        if (sending) list.addView(centred("Sending attachment…", UiR.color.social_muted))
+        // §14.5.4 — "Sending 3 of 7" rather than "Sending attachment", because a
+        // batch of photos takes long enough that a static message reads as stuck.
+        if (sending) list.addView(centred(progress ?: "Sending attachment…",
+            UiR.color.social_muted))
         error?.let { list.addView(centred(it, UiR.color.social_danger)) }
     }
 

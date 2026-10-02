@@ -125,6 +125,7 @@ not options:
 | 35 | [Play Store submission](35-play-submission.md) | `DURABLE` |
 | 36 | [Risk register](36-risk-register.md) | `DURABLE` |
 | 37 | [Open questions](37-open-questions.md) | — |
+| 38 | [Bug reports and user feedback](38-bug-reports.md) | `DURABLE` |
 
 ---
 
