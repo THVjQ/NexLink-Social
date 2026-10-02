@@ -266,7 +266,7 @@ direction for a reporting channel.
 
 ---
 
-## 38.8 Alerting, and the blocker in front of it
+## 38.8 Alerting
 
 A report that sits in a list until somebody looks at the list is, for anything
 urgent, the same as not reported. So the service alerts on create — and
@@ -274,15 +274,26 @@ urgent, the same as not reported. So the service alerts on create — and
 A report that fails to save because nobody could be told about it is worse in
 every way than one that saves quietly.
 
-**The blocker:** `social-alerts` (§27.6) sends through `midclt call mail.send`,
-and Willard's `mail.config` has never been configured — empty `fromemail` and
-`outgoingserver`, `smtp: false`. Every mail path on that box is dead today. 587
-with STARTTLS works outbound; 465 and 25 are blocked upstream.
+The service cannot send the mail itself: it lives in a container and `midclt`
+does not exist in there. So it appends one JSON line per report to
+`alerts-pending`, and `bug-alert` on the host drains that queue on a 15-minute
+TrueNAS cron job (id 6). The queue entry carries the reference and the kind, and
+the mail says *go and read it* rather than quoting a user's words into an email —
+widening §38.3 by way of a notification would be the same mistake in a different
+place.
 
-Until that is fixed the alert call is a no-op that logs one line, the operator
-page is the real channel, and **this chapter does not claim otherwise.** The
-alert is written and wired so that configuring mail switches it on with no code
-change.
+**Mail works, verified 2026-10-02** — `mail.config` is `luca@reiflers.ch` via
+`smtp.protonmail.ch:587` with STARTTLS, and a real `bug-alert run` delivered.
+Note this reverses what §27.6 and earlier drafts of this chapter said: mail had
+never been configured on Willard as of 2026-09-13, and the Proton SMTP
+submission that makes it possible is a paid-plan feature. If it stops working,
+587 is the only usable port — 465 times out and 25 is unreachable, both blocked
+upstream by Starlink.
+
+`bug-alert` degrades the right way if that changes: it checks `mail.config`
+first, and on an unconfigured or failing send it says so, **keeps the queue**,
+and truncates it only past 500 entries. Nothing is lost while mail is broken,
+and the operator page is always the channel that does not depend on it.
 
 ---
 

@@ -1,12 +1,28 @@
 # Deploying the bug-report service — §38
 
-**Status: NOT DEPLOYED.** Everything below is written, tested locally and
-staged. Nothing is live: there is no `nexlink-social-bugs` app, no nginx
-location, and no cron job. This file is the one reviewed step that changes that.
+**Status: DEPLOYED 2026-10-02.** The server side is live and verified:
+`nexlink-social-bugs` is RUNNING on port 8066, `/report/` and `/bugs/api/` are
+public on `nexlink.thvjq.com.au`, `/ops` returns 404 publicly, and cron job id 6
+drains the alert queue every 15 minutes. **The Android screen has still never
+run on a handset** — step 6.
 
-Read [§38](../../docs/social/38-bug-reports.md) first — particularly §38.6,
-because step 3 is where it would be easy to publish the operator page by
-accident.
+Keep the steps below: they are the record of what was done, and the sequence to
+re-run after a rebuild or a restore. Read
+[§38](../../docs/social/38-bug-reports.md) first — particularly §38.6, because
+step 3 is where it would be easy to publish the operator page by accident.
+
+### Two things that bit during the real deploy
+
+1. **`app.update` takes the compose config WRAPPED in `custom_compose_config`;
+   `app.config` returns it UNWRAPPED.** The round-trip is not symmetric. Passing
+   `app.config`'s output straight back fails with
+   `[EINVAL] update.services: Extra inputs are not permitted`, which reads like a
+   schema problem with the services block rather than a missing wrapper. See
+   step 2.
+2. **Mail is configured after all** — see step 5. Earlier drafts of this runbook
+   and §27.6 said every mail path on Willard was dead; that was true on
+   2026-09-13 and is not true now, and the first `bug-alert run` promptly
+   emailed twelve smoke-test reports to prove it.
 
 ## What is already on Willard
 
@@ -70,15 +86,20 @@ middleware-injected blocks first** or the payload is ~300 KB and sudo fails with
 
 ```bash
 ssh willard-lan 'sudo midclt call app.config nexlink-social-web \
-  | jq "del(.ix_context,.ix_certificates,.ix_certificate_authorities,.ix_volumes)" \
-  > /tmp/ew.json'
+  | jq "del(.ix_context,.ix_certificates,.ix_certificate_authorities,.ix_volumes)
+        | .services[\"social-element-web\"].volumes += [{
+            \"type\": \"bind\",
+            \"source\": \"/mnt/Pool1-MAIN/social/bugs-page\",
+            \"target\": \"/report-page\",
+            \"read_only\": true
+          }]" > /tmp/ew-new.json'
+
+# THE WRAPPER — app.update will not take app.config's shape as-is.
+ssh willard-lan 'sudo jq "{custom_compose_config: .}" /tmp/ew-new.json > /tmp/ew-wrapped.json'
 ```
 
-Add to `services["social-element-web"].volumes`:
-
-```json
-{"type": "bind", "source": "/mnt/Pool1-MAIN/social/bugs-page", "target": "/report-page", "read_only": true}
-```
+Check it is ~1 KB, not ~300 KB, before applying — stripping the four `ix_*`
+blocks is what keeps it small enough for sudo's argv.
 
 ## Step 3 — the nginx template — READ §38.6 BEFORE EDITING
 
@@ -106,7 +127,7 @@ ssh willard-lan 'sudo install -m 0644 /tmp/ew-nginx.conf \
 Then apply the volume change from step 2, which also restarts nginx:
 
 ```bash
-ssh willard-lan 'sudo bash -c "midclt call -j app.update nexlink-social-web \"\$(cat /tmp/ew.json)\""'
+ssh willard-lan 'sudo sh -c "midclt call -j app.update nexlink-social-web \"\$(cat /tmp/ew-wrapped.json)\""'
 ```
 
 The template is mounted over `/etc/nginx/templates/`, **not** over
@@ -160,18 +181,24 @@ ssh willard-lan 'sudo midclt call cronjob.create "{
 }"'
 ```
 
-**It will not deliver anything yet, and that is expected.** Willard's
-`mail.config` has an empty `fromemail` and `outgoingserver` with `smtp: false`,
-so every mail path on the box is dead. `bug-alert` detects that, says so, and
-keeps the queue. Check with:
+**It delivers.** Verified 2026-10-02: `mail.config` is `luca@reiflers.ch` via
+`smtp.protonmail.ch:587` with STARTTLS, and a real run mailed. This reverses the
+note in §27.6 and in earlier drafts here, which said Willard had never sent mail
+— true on 2026-09-13, not true now.
 
 ```bash
 ssh willard-lan 'sudo /mnt/Pool1-MAIN/social/bugs-tools/bug-alert status'
+# queued: N
+# mail:   OK — configured
 ```
 
-Configuring Credentials → Email (**587 with STARTTLS** — 465 and 25 are blocked
-upstream) switches delivery on with no code change. Until then the operator page
-is the real channel.
+If it ever reports NOT CONFIGURED, `bug-alert` keeps the queue rather than
+dropping it, and the operator page is unaffected. **587 is the only usable
+port** — 465 times out and 25 is unreachable, both blocked upstream.
+
+Beware running `bug-alert run` by hand after a batch of test reports: it mails
+all of them in one message, which is how twelve smoke tests reached the
+operator's inbox during this deploy.
 
 ## Step 6 — the app
 
