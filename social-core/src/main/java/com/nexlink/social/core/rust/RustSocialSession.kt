@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,13 +111,21 @@ class RustSocialSession private constructor(
     override fun rooms(): Flow<List<RoomSummary>> = _rooms.asStateFlow()
 
     /** §11.7 step 1 — the session is live; publish who we are. */
-    suspend fun publishSignedInState() {
-        val enc = client.encryption()
+    /**
+     * §8.5.2 — ask the server whether a key backup exists. A network round
+     * trip; null when it could not be answered, so a caller holding a cached
+     * answer can keep it rather than overwrite it with a guess.
+     */
+    suspend fun checkKeyBackup(): Boolean? =
+        runCatching { client.encryption().backupExistsOnServer() }.getOrNull()
+
+    /** Publish without touching the network — a cold start must not wait on it. */
+    fun publishSignedInState(keyBackupHealthy: Boolean) {
         _state.value = SessionState.SignedIn(
             userId = UserId(client.userId()),
             deviceId = DeviceId(client.deviceId()),
             // §8.5.2 — backup health. False means a new device gets no history.
-            keyBackupHealthy = runCatching { enc.backupExistsOnServer() }.getOrDefault(false),
+            keyBackupHealthy = keyBackupHealthy,
             // §8.6 — NOT available from the SDK (§11.7.3). The device list needs
             // raw Client-Server API calls, so this stays 0 until that is built.
             unverifiedDeviceCount = 0
@@ -162,7 +171,12 @@ class RustSocialSession private constructor(
         // unexpected verification request is the signal that someone is trying
         // to add a device to the account, and a request nobody can see is a
         // warning that was never given.
-        runCatching { startVerification() }
+        //
+        // Launched, not awaited. startVerification() retries for up to 15 s
+        // while the identity is missing, and awaiting it here held the inbox
+        // on "Opening your messages…" for all of that. It still starts now,
+        // alongside the first sync, which is all the paragraph above needs.
+        scope.launch { runCatching { startVerification() } }
     }
 
     /**
@@ -1134,7 +1148,7 @@ class RustSocialSession private constructor(
      * nothing about but try again. If it never arrives, the last error is
      * thrown and the caller says something short (§8.4.4).
      */
-    suspend fun startVerification(): RustVerification {
+    suspend fun startVerification(): RustVerification = verificationLock.withLock {
         verification?.let { return it }
         var last: Throwable? = null
         repeat(VERIFICATION_ATTEMPTS) { attempt ->
@@ -1145,6 +1159,14 @@ class RustSocialSession private constructor(
         }
         throw last ?: IllegalStateException("verification is not available yet")
     }
+
+    /**
+     * One controller per client, so concurrent callers must not each build
+     * one. startSync() launches this and SocialApplication's watcher calls it
+     * on the same SignedIn state; without the lock both could pass the null
+     * check and the second would silently unhook the first's delegate.
+     */
+    private val verificationLock = kotlinx.coroutines.sync.Mutex()
 
     /**
      * §8.4 / §7.4.4 — is there a cross-signing identity to verify *against*?
@@ -1256,7 +1278,12 @@ class RustSocialSession private constructor(
                     java.io.File(sessionPath, "search").apply { mkdirs() }.absolutePath,
                     java.io.File(cachePath, "search").apply { mkdirs() }.absolutePath
                 )
-                .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.DISCOVER_NATIVE)
+                // NATIVE, not DISCOVER_NATIVE as in login(). Discovery is a
+                // network round trip to /versions inside build(), so every cold
+                // start waited on the server before reading a byte of its own
+                // store. Login already proved the server is native, and the
+                // stored Session carries SlidingSyncVersion.NATIVE.
+                .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.NATIVE)
                 .build()
             client.restoreSession(session)
             val sync = client.syncService().withRoomListTimelineLimit(10u).finish()

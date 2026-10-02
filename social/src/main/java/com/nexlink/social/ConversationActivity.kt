@@ -189,7 +189,7 @@ class ConversationActivity : AppCompatActivity() {
         // other person's address, which is the single most useful thing to be
         // able to check without leaving the screen; in a group it is a count.
         lifecycleScope.launch {
-            val s = SessionProvider.manager(this@ConversationActivity).current() ?: return@launch
+            val s = SessionProvider.manager(this@ConversationActivity).live() ?: return@launch
             s.members(rid).onSuccess { members ->
                 val joined = members.filter { it.membership == "joined" }
                 val others = joined.filter { !it.isSelf }
@@ -203,7 +203,7 @@ class ConversationActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            val s = SessionProvider.manager(this@ConversationActivity).current() ?: return@launch
+            val s = SessionProvider.manager(this@ConversationActivity).live() ?: return@launch
             s.typingUsers(rid).collectLatest { who ->
                 typingNow = who.filter { it != myUserId() }
                 render(lastItems)
@@ -211,10 +211,15 @@ class ConversationActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            val s = SessionProvider.manager(this@ConversationActivity).current() ?: return@launch
+            val s = SessionProvider.manager(this@ConversationActivity).live() ?: return@launch
             val t = s.timeline(rid)
             timeline = t
-            t.paginateBack(30)
+            // Collect FIRST, paginate alongside. This used to await
+            // paginateBack(30) before collecting, so the messages already in
+            // the local store stayed hidden until the server answered a
+            // back-pagination — the slowest part of opening a chat on a cold
+            // start. Older messages now arrive as diffs on the same flow.
+            launch { runCatching { t.paginateBack(30) } }
             t.items.collectLatest { items ->
                 lastItems = items
                 render(items)

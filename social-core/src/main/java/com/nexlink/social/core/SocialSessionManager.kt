@@ -4,9 +4,15 @@ import android.content.Context
 import com.nexlink.social.core.rust.RustSocialSession
 import com.nexlink.social.core.session.SessionState
 import com.nexlink.social.core.session.SocialSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 
 /**
@@ -41,6 +47,15 @@ class SocialSessionManager(private val context: Context) {
     @Volatile private var session: RustSocialSession? = null
 
     fun current(): SocialSession? = session
+
+    /**
+     * The live session, restoring it first if this process has not yet.
+     *
+     * For screens that can be the first thing a cold process shows — a
+     * conversation opened from a notification never passes through
+     * HomeActivity, so `current()` there is null and the screen sat empty.
+     */
+    suspend fun live(): SocialSession? = session ?: run { restore(); session }
 
     val hasStoredSession: Boolean get() = store.hasSession
 
@@ -90,14 +105,23 @@ class SocialSessionManager(private val context: Context) {
             s.appContext = context.applicationContext
             session = s
             s.startSync()
-            s.publishSignedInState()
+            publishChecked(s)
             _state.value = s.currentState()
         }.onFailure { _state.value = SessionState.Failed(it.message ?: "sign-in failed") }
 
-    /** Called at launch. Returns false when there is nothing to restore. */
-    suspend fun restore(): Boolean {
+    /**
+     * Called at launch. Returns false when there is nothing to restore.
+     *
+     * **Idempotent.** HomeActivity calls this from every `onCreate`, and push
+     * and share call it too. Without the guard, each call built a second
+     * Client on the same store and restarted sync from nothing: reopening the
+     * app after a push had already woken it, or merely rotating the screen,
+     * paid the whole cold start again and leaked the previous Client.
+     */
+    suspend fun restore(): Boolean = restoreLock.withLock {
+        if (session != null) return true
         val saved = store.load() ?: return false
-        return runCatching {
+        runCatching {
             SocialPlatform.init()
             _state.value = SessionState.Restoring
             val (data, cache) = paths()
@@ -105,14 +129,38 @@ class SocialSessionManager(private val context: Context) {
             s.appContext = context.applicationContext
             session = s
             s.startSync()
-            s.publishSignedInState()
+            // The inbox renders from the local store as soon as this is
+            // published, so nothing here may wait on the network. The backup
+            // check is a round trip; show the last answer and refresh it.
+            s.publishSignedInState(store.backupHealthy ?: false)
             _state.value = s.currentState()
+            background.launch {
+                val fresh = s.checkKeyBackup() ?: return@launch
+                store.backupHealthy = fresh
+                if (session !== s) return@launch
+                s.publishSignedInState(fresh)
+                _state.value = s.currentState()
+            }
             true
         }.getOrElse {
             _state.value = SessionState.Failed(it.message ?: "could not restore session")
             false
         }
     }
+
+    /**
+     * Publish SignedIn after asking the server about the key backup, and keep
+     * the answer for the next cold start. For sign-in and recovery setup,
+     * where the user is already waiting on the network anyway.
+     */
+    private suspend fun publishChecked(s: RustSocialSession) {
+        val ok = s.checkKeyBackup()
+        if (ok != null) store.backupHealthy = ok
+        s.publishSignedInState(ok ?: store.backupHealthy ?: false)
+    }
+
+    private val restoreLock = Mutex()
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * §7.4 — set up recovery: a cross-signing identity **and** a key backup,
@@ -141,7 +189,7 @@ class SocialSessionManager(private val context: Context) {
                 }
             )
         }
-        s.publishSignedInState()
+        publishChecked(s)
         _state.value = s.currentState()
         key
     }

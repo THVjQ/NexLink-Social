@@ -197,6 +197,24 @@ class SessionStore(context: Context) {
      */
     fun clear() = prefs.edit().clear().apply()
 
+    /**
+     * §8.5.2 — the server's last answer to "does a key backup exist?", or null
+     * if it has never been asked.
+     *
+     * Kept so a cold start can show the inbox without waiting on the network:
+     * asking the server cost a full round trip *before* the room list could
+     * render, on every launch. The cached answer is shown first and the live
+     * check replaces it moments later. Guessing instead is wrong both ways —
+     * `false` flashes the "recovery NOT set up" banner at someone who has it,
+     * and `true` lets the sign-out dialog promise a restore that may not exist.
+     */
+    var backupHealthy: Boolean?
+        get() = if (prefs.contains(K_BACKUP_OK)) prefs.getBoolean(K_BACKUP_OK, false) else null
+        set(v) {
+            if (v == null) prefs.edit().remove(K_BACKUP_OK).apply()
+            else prefs.edit().putBoolean(K_BACKUP_OK, v).apply()
+        }
+
     private companion object {
         const val K_ACCESS = "access_token"
         const val K_REFRESH = "refresh_token"
@@ -205,5 +223,6 @@ class SessionStore(context: Context) {
         const val K_HS = "homeserver_url"
         const val K_OIDC = "oidc_data"
         const val K_STORE_KEY = "store_key"
+        const val K_BACKUP_OK = "backup_healthy"
     }
 }
