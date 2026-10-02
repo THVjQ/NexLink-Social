@@ -1,0 +1,157 @@
+server {
+
+    # ── §17.6 self-hosted Element Call ──────────────────────────────────────
+    #
+    # §17.6.2 chose Option A, the Element Call widget. The one thing counting
+    # against it was Element Web defaulting to call.element.io — a third party
+    # serving executable code into the call surface of a privacy product.
+    # Self-hosting removes that, and is a deployment rather than a rewrite.
+    #
+    # Element Call references its assets ABSOLUTELY (/assets/...). Rather than
+    # rewriting those — which fails for URLs the bundle builds at runtime, and
+    # 29 sound and translation files proved it — /assets/ is served straight
+    # from the Element Call container. Element Web does not use that path: it
+    # serves /bundles/, /vector-icons/ and /i18n/, so there is no collision.
+    #
+    # /config.json DOES collide: both apps want it. Element Call's is rewritten
+    # to /call/config.json by sub_filter, which works because it appears in the
+    # HTML rather than being constructed later.
+    location /assets/ {
+        proxy_pass http://192.168.0.10:8065/assets/;
+        proxy_set_header Host $host;
+        add_header Cache-Control "public, immutable, max-age=31536000";
+    }
+
+    location /call/ {
+        proxy_pass http://192.168.0.10:8065/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # sub_filter cannot rewrite a gzipped body, and the upstream has
+        # gzip_static on.
+        proxy_set_header Accept-Encoding "";
+        sub_filter_once off;
+        sub_filter_types text/html;
+        sub_filter '"/config.json"' '"/call/config.json"';
+        sub_filter 'href="favicon'  'href="/call/favicon';
+    }
+
+
+    # ── §32.3 public account deletion ───────────────────────────────────────
+    # §1.2 and §4.2.1: deletion must work from a web page WITHOUT the app
+    # installed. Static, no backend — it uses the client-server API with the
+    # user's own password, so nothing privileged lives here.
+    # nginx builds redirects from the scheme it SEES, and behind the tunnel
+    # that is plain http — so /delete redirected to http://…/delete/ and relied
+    # on Cloudflare to upgrade it. Relative redirects keep the browser's scheme.
+    absolute_redirect off;
+
+    # ── §32.4 the account page ──────────────────────────────────────────────
+    # Same shape as /delete: static, no backend, and it calls the
+    # client-server API with the user own credentials. Styled to match the
+    # Android app so the web and the phone read as one product.
+    location /account {
+        alias /account-page/;
+        index index.html;
+        try_files $uri $uri/ /account-page/index.html;
+        add_header Cache-Control "no-cache";
+    }
+
+    location /delete {
+        alias /deletion/;
+        index index.html;
+        try_files $uri $uri/ /deletion/index.html;
+        add_header Cache-Control "no-cache";
+    }
+
+
+    # ── §38 bug reports ─────────────────────────────────────────────────────
+    #
+    # Two public paths and no more. §38.6 is the load-bearing part: the
+    # OPERATOR page is /ops on port 8066 and it deliberately has NO location
+    # here, which is the whole mechanism keeping it off the public internet and
+    # keeping the Privacy Policy §6.1 promise true. Do not add one — §38.6
+    # lists what would have to happen first, and the order matters.
+    location /report {
+        alias /report-page/;
+        index index.html;
+        # §38.5 — a reference arrives as /report/R-XXXXXX. Under `alias`,
+        # try_files resolves a bare filename against the alias directory, so
+        # index.html catches the code form. The page also accepts ?r=CODE, so
+        # links already handed out survive even if this stops matching.
+        try_files $uri index.html =404;
+        add_header Cache-Control "no-cache";
+    }
+
+    # §38.7.2 — the only unauthenticated write surface in the deployment, so
+    # the client address it rate-limits on has to be trustworthy. XFF is
+    # OVERWRITTEN with $remote_addr rather than appended to: a client that
+    # sends its own X-Forwarded-For would otherwise sit at the head of the
+    # list and get a fresh bucket per request. The real client address comes
+    # from CF-Connecting-IP, which Cloudflare sets itself and which cannot be
+    # forged through the tunnel; LAN requests have none and fall back to the
+    # peer address.
+    location /bugs/api/ {
+        proxy_pass http://192.168.0.10:8066/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+
+    # ── §17.3.1 MatrixRTC JWT service ───────────────────────────────────────
+    #
+    # Proxied through Element Web rather than given its own hostname, because
+    # public routes live in the Cloudflare dashboard and adding one needs the
+    # account owner. The catch-all route already sends everything that is not
+    # /_matrix here, so this is reachable at
+    # https://nexlink.thvjq.com.au/livekit/jwt with no Cloudflare change.
+    # §26.2.3's reasoning, reused: one hostname, fanned out by path.
+    #
+    # This is injected into the TEMPLATE, not into conf.d/default.conf. The
+    # image generates that file at startup with envsubst, so a read-only mount
+    # over it stops the container booting at all:
+    #   20-envsubst-on-templates.sh: can't create /etc/nginx/conf.d/default.conf:
+    #   Read-only file system
+    # which is exactly how this was learned.
+    location /livekit/jwt/ {
+        proxy_pass http://192.168.0.10:8063/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen       ${ELEMENT_WEB_PORT};
+    listen  [::]:${ELEMENT_WEB_PORT};
+    server_name  localhost;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    # Set no-cache for the version, config, i18n, and index.html
+    # so that browsers always check for a new copy of Element Web.
+    # NB http://your-domain/ and http://your-domain/? are also covered by this
+
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+    location = /version {
+        add_header Cache-Control "no-cache";
+    }
+    location /i18n/ {
+        add_header Cache-Control "no-cache";
+    }
+
+    # covers config.json and config.hostname.json requests as it is prefix.
+    location /config {
+        root /tmp/element-web-config;
+        add_header Cache-Control "no-cache";
+    }
+    location /modules {
+        alias /modules;
+    }
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+}
+

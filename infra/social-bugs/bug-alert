@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""
+NexLink Social — drain the bug-report alert queue. §38.8.
+
+The service writes one JSON line per new report into `alerts-pending`; this
+runs on the host and mails them. It is split that way for one reason: the
+service lives in a container and `midclt` does not exist in there.
+
+  bug-alert run      # mail anything queued, clear what was sent
+  bug-alert status   # say what is queued and whether mail would work
+
+**Mail on this box has never been configured** — `mail.config` has an empty
+`fromemail` and `outgoingserver` with `smtp: false`, so every alert path on
+Willard is dead today. That is a configuration gap, not a code gap: when
+Credentials → Email is filled in, this starts delivering with no change here.
+Until then it says so on every run and leaves the queue in place, so nothing
+is lost in the meantime.
+
+Queue entries are NOT the report. They carry the reference code and the kind,
+and the mail says "go and read it" rather than quoting a user's words into an
+email — §38.3's list is about what the database holds, and widening it by way
+of a notification would be the same mistake in a different place.
+"""
+import json
+import os
+import subprocess
+import sys
+
+QUEUE = os.environ.get("ALERT_QUEUE", "/mnt/Pool1-MAIN/social/bugs/alerts-pending")
+OPS_URL = "http://192.168.0.10:8066/ops"
+# A queue nobody drains must not grow without bound. 500 lines is far beyond
+# any real backlog and still small enough to read.
+MAX_QUEUE = 500
+
+
+def sh(cmd, timeout=120):
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, p.stdout.strip(), p.stderr.strip()
+    except Exception as e:                                        # noqa: BLE001
+        return 1, "", f"{type(e).__name__}: {e}"
+
+
+def mail_configured():
+    rc, out, _ = sh(["midclt", "call", "mail.config"])
+    if rc != 0:
+        return False, "mail.config unreadable"
+    try:
+        cfg = json.loads(out)
+    except ValueError:
+        return False, "mail.config was not JSON"
+    if not cfg.get("fromemail") or not cfg.get("outgoingserver"):
+        return False, "no fromemail / outgoingserver set"
+    return True, "configured"
+
+
+def mail(subject, text):
+    rc, out, err = sh(["midclt", "call", "mail.send",
+                       json.dumps({"subject": subject, "text": text})])
+    return rc == 0, (err or out)[:300]
+
+
+def read_queue():
+    if not os.path.exists(QUEUE):
+        return []
+    rows = []
+    with open(QUEUE) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+    return rows
+
+
+def truncate_queue():
+    """Keep the tail. The newest reports are the ones worth still mailing."""
+    rows = read_queue()
+    if len(rows) <= MAX_QUEUE:
+        return
+    with open(QUEUE, "w") as f:
+        for r in rows[-MAX_QUEUE:]:
+            f.write(json.dumps(r) + "\n")
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
+    rows = read_queue()
+    ok, why = mail_configured()
+
+    if cmd == "status":
+        print(f"queued: {len(rows)}")
+        print(f"mail:   {'OK — ' if ok else 'NOT CONFIGURED — '}{why}")
+        for r in rows[-10:]:
+            print(f"  {r.get('at', '?')}  {r.get('id', '?')}  {r.get('kind', '?')}")
+        return 0
+
+    if cmd != "run":
+        print(__doc__)
+        return 2
+
+    if not rows:
+        return 0
+
+    if not ok:
+        # Loud but harmless, and the queue survives for when mail works.
+        print(f"bug-alert: {len(rows)} report(s) queued but mail is not configured "
+              f"({why}). Read them at {OPS_URL}")
+        truncate_queue()
+        return 0
+
+    kinds = {}
+    for r in rows:
+        kinds[r.get("kind", "bug")] = kinds.get(r.get("kind", "bug"), 0) + 1
+    summary = ", ".join(f"{n} {k}" for k, n in sorted(kinds.items()))
+    codes = "\n".join(f"  {r.get('at', '?')}  {r.get('id', '?')}  {r.get('kind', '?')}"
+                      for r in rows)
+
+    sent, info = mail(
+        f"[NexLink Social] {len(rows)} new report(s): {summary}",
+        f"{len(rows)} new report(s) came in.\n\n{codes}\n\n"
+        f"Read them at {OPS_URL}\n\n"
+        f"The text is deliberately not quoted here — §38.3.")
+
+    if sent:
+        # Only clear what was actually delivered. Anything the service appended
+        # while the mail was in flight stays queued for the next run.
+        remaining = read_queue()[len(rows):]
+        with open(QUEUE, "w") as f:
+            for r in remaining:
+                f.write(json.dumps(r) + "\n")
+        print(f"bug-alert: mailed {len(rows)} report(s)")
+    else:
+        print(f"bug-alert: mail FAILED, queue kept: {info}")
+        truncate_queue()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

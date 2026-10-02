@@ -193,9 +193,11 @@ column could not do here: **it closes the loop for an anonymous reporter.** They
 can read the status and the operator's reply without an account, without an
 MXID, and without the operator knowing who they are.
 
-The code is 6 characters from a 32-character unambiguous alphabet — 2^30 of
-space, which is not a secret worth attacking (it protects one person's own bug
-report) but is far beyond guessing at the rate limit in §38.7.2. Codes are
+The code is 6 characters from a 29-character unambiguous alphabet (no O/0,
+I/1/L, U/V, so a code read off a phone and typed into a browser survives the
+trip) — about 2^29 of space. That is not a secret worth attacking, since it
+protects one person's own bug report, but it is far beyond guessing at the rate
+limit in §38.7.2. Codes are
 single-purpose: the lookup returns the report's own fields and nothing else, so a
 guessed code reveals one stranger's bug description and no identity.
 
