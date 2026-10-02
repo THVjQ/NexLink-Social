@@ -38,7 +38,11 @@ class Icon(
 ) : Drawable() {
 
     enum class Kind {
-        BACK, SEARCH, MORE, VIDEO_CALL, ATTACH, SEND, NEW_CHAT, PEOPLE, CLOSE, CHECK
+        BACK, SEARCH, MORE, VIDEO_CALL, ATTACH, SEND, NEW_CHAT, PEOPLE, CLOSE, CHECK,
+        // §14.5.3 — the photo viewer. Reusing ATTACH and SEND for these read
+        // as "+" and a paper plane, which say the wrong thing about what the
+        // button does. An icon that lies is worse than a word.
+        DOWNLOAD, SHARE
     }
 
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -128,6 +132,24 @@ class Icon(
             Kind.CHECK -> {
                 path.moveTo(4.5f, 12.5f); path.lineTo(9.5f, 17.5f); path.lineTo(19.5f, 6.5f)
                 canvas.drawPath(path, stroke)
+            }
+            // Arrow into a tray — the common "save to device" shape.
+            Kind.DOWNLOAD -> {
+                canvas.drawLine(12f, 3.5f, 12f, 15f, stroke)
+                path.moveTo(7f, 10.5f); path.lineTo(12f, 15.5f); path.lineTo(17f, 10.5f)
+                canvas.drawPath(path, stroke)
+                path.reset()
+                path.moveTo(4.5f, 17f); path.lineTo(4.5f, 20f); path.lineTo(19.5f, 20f)
+                path.lineTo(19.5f, 17f)
+                canvas.drawPath(path, stroke)
+            }
+            // Three nodes joined — the platform-neutral share mark.
+            Kind.SHARE -> {
+                canvas.drawCircle(17.5f, 5.5f, 2.6f, stroke)
+                canvas.drawCircle(6.5f, 12f, 2.6f, stroke)
+                canvas.drawCircle(17.5f, 18.5f, 2.6f, stroke)
+                canvas.drawLine(8.9f, 10.8f, 15.1f, 6.7f, stroke)
+                canvas.drawLine(8.9f, 13.2f, 15.1f, 17.3f, stroke)
             }
         }
         canvas.restoreToCount(save)

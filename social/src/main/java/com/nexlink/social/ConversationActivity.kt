@@ -997,7 +997,17 @@ class ConversationActivity : AppCompatActivity() {
             adjustViewBounds = true
             maxHeight = dp(320)
             scaleType = android.widget.ImageView.ScaleType.FIT_START
-            contentDescription = c.caption ?: "Image"
+            contentDescription = c.caption ?: "Photo, tap to open"
+            // §14.5.3 — a received photo had NO click listener, so tapping it
+            // did nothing and there was no failure to notice. It is the only
+            // content type the timeline rendered that a user would expect to
+            // open.
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(ImageViewerActivity.intent(
+                    this@ConversationActivity, c.mediaId, c.caption))
+            }
             // Square photo corners inside a rounded bubble look like a mistake.
             clipToOutline = true
             outlineProvider = object : android.view.ViewOutlineProvider() {

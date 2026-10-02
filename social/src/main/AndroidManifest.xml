@@ -152,6 +152,11 @@
             android:label="@string/app_name" />
 
         <activity
+            android:name=".ImageViewerActivity"
+            android:exported="false"
+            android:label="@string/app_name" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="@string/app_name" />
@@ -242,5 +247,24 @@
             android:name=".call.IncomingCallNotification$DeclineReceiver"
             android:exported="false" />
 
+
+        <!--
+             §14.5.3 — sharing a photo out of the app.
+
+             exported="false" with grantUriPermissions: the receiving app gets a
+             grant that dies with its activity, and no other app can read the
+             directory. The alternative — writing to shared storage — leaves a
+             decrypted photo readable by everything on the phone, for a message
+             the user only meant to forward once.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

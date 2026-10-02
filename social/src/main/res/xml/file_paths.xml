@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  §14.5.3 — the ONLY directory shared out of this app.
+
+  cache/shared-media, and nothing else. A FileProvider that exposes a broad
+  root is how a decrypted photo ends up readable by whatever asked, so the path
+  is one subdirectory that the viewer clears before each share.
+-->
+<paths>
+    <cache-path name="shared-media" path="shared-media/" />
+</paths>
