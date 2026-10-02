@@ -174,15 +174,6 @@ class SettingsActivity : AppCompatActivity() {
                     startActivity(PolicyActivity.intent(this@SettingsActivity, PolicyActivity.DOC_PRIVACY))
                 }))
             add(chrome.rowDivider(insetStartDp = 16))
-            // §38 — the only way a user can tell the operator anything. There
-            // was no reporting surface at all before this row existed.
-            add(chrome.infoRow(
-                label = "Report a problem",
-                detail = "Something broken, or something you wish it did.",
-                onClick = {
-                    startActivity(ReportProblemActivity.intent(this@SettingsActivity, "settings"))
-                }))
-            add(chrome.rowDivider(insetStartDp = 16))
             add(chrome.infoRow(
                 label = "Buy me a coffee",
                 detail = "Entirely optional, and it buys nothing — the app is the same either way.",

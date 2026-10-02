@@ -166,14 +166,6 @@
             android:exported="false"
             android:label="@string/app_name" />
 
-        <!-- §38 — reporting a fault. exported=false: it is reached from
-             Settings, and an exported report form is a spam endpoint with a
-             launcher icon. -->
-        <activity
-            android:name=".ReportProblemActivity"
-            android:exported="false"
-            android:label="@string/app_name" />
-
         <!-- §13.3 — FCM receiver. exported=false; FCM binds it through the
              Play Services permission, not through an exported component. -->
         <service
