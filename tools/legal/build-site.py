@@ -125,10 +125,18 @@ def md_to_html(md):
 
         if s.startswith(">"):
             close_list()
-            buf = []
+            # Two trailing spaces are a Markdown hard line break. The preface's
+            # prayer depends on it: without it the lines run together as prose.
+            # Quotes without them still reflow into one paragraph, as before.
+            # The break is marked with \0 and swapped in after inline(), so a
+            # bold run that spans lines is still parsed as one.
+            text = ""
             while i < len(lines) and lines[i].strip().startswith(">"):
-                buf.append(lines[i].strip().lstrip("> ").strip()); i += 1
-            out.append(f'<div class="note"><p>{inline(" ".join(buf))}</p></div>')
+                hard = lines[i].endswith("  ")
+                text += lines[i].strip().lstrip("> ").strip() + ("\0" if hard else " ")
+                i += 1
+            html_text = inline(text.strip()).replace("\0", "<br />")
+            out.append(f'<div class="note"><p>{html_text}</p></div>')
             continue
 
         m = re.match(r"^[-*+]\s+(.*)$", s)

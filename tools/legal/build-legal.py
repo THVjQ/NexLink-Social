@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Assemble the NexLink legal pack: every document + the shared definitions appendix.
+Assemble the NexLink legal pack: the shared preface + every document + the
+shared definitions appendix.
 
     tools/legal/build-legal.py [--check]
 
@@ -10,6 +11,11 @@ eight hand-maintained copies of a definition is eight chances for "Terrorism" to
 mean one thing in the Terms of Service and another in the Content Policy — and a
 prohibition that means two things is exactly the vagueness these definitions
 exist to remove.
+
+The preface — a Bible verse and a prayer — is written once, in
+docs/legal/preface.<lang>.md, and placed at the top of every document for the
+same reason: one source, so the fourteen copies cannot drift apart. It states
+that it is not part of the document and changes the meaning of no term.
 
 Output goes to docs/legal/dist/<lang>/, which is what ships in the apps and what
 is published. Nothing writes back into the source documents, so the script is
@@ -35,14 +41,17 @@ APPENDIX_HEADING = {"en": "## Appendix A", "de": "## Anhang A"}
 
 BANNER = {
     "en": "<!-- Assembled by tools/legal/build-legal.py. Edit docs/legal/{lang}/{name}\n"
-          "     or docs/legal/definitions.{lang}.md, never this file. -->\n",
+          "     or docs/legal/preface.{lang}.md or docs/legal/definitions.{lang}.md,\n"
+          "     never this file. -->\n",
     "de": "<!-- Erstellt von tools/legal/build-legal.py. Bearbeiten Sie docs/legal/{lang}/{name}\n"
-          "     oder docs/legal/definitions.{lang}.md, niemals diese Datei. -->\n",
+          "     oder docs/legal/preface.{lang}.md oder docs/legal/definitions.{lang}.md,\n"
+          "     niemals diese Datei. -->\n",
 }
 
 
 def assemble(lang):
     """Yield (filename, text) for every document in one language."""
+    preface = (LEGAL / f"preface.{lang}.md").read_text().rstrip("\n")
     appendix = (LEGAL / f"definitions.{lang}.md").read_text()
     for src in sorted((LEGAL / lang).glob("*.md")):
         body = src.read_text().rstrip("\n")
@@ -51,7 +60,7 @@ def assemble(lang):
         if not body.endswith("---"):
             body += "\n\n---"
         banner = BANNER[lang].format(lang=lang, name=src.name)
-        yield src.name, f"{banner}\n{body}\n\n{appendix.rstrip()}\n"
+        yield src.name, f"{banner}\n{preface}\n\n{body}\n\n{appendix.rstrip()}\n"
 
 
 def main():

@@ -31,6 +31,7 @@ document is published in **English and German**.
 
 ```
 docs/legal/
+  preface.en.md       preface.de.md        ← verse + prayer at the top of every document
   definitions.en.md   definitions.de.md    ← Appendix A, the single source
   en/  de/                                  ← the seven documents, per language
   dist/en/  dist/de/                        ← ASSEMBLED — this is what ships
