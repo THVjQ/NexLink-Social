@@ -87,6 +87,7 @@ gesprochen würde. Alles Folgende bleibt auf Ihrem Gerät.
 | Ihre Kontakte | Nur Ihr Gerät | Um Namen statt Nummern anzuzeigen |
 | Ihre Anrufliste | Nur Ihr Gerät | Um kürzliche Anrufe anzuzeigen |
 | Mitteilungen anderer Messenger | Nur Ihr Gerät | Der Posteingang liest sie, um eine Liste zu bilden |
+| Von Ihnen gesendete Nachrichten in anderen Messengern (optional) | Nur Ihr Gerät | Die Erfassung gesendeter Nachrichten zeigt Ihre eigenen Antworten im Posteingang |
 | Angehängte Fotos, Audio und Video | Ihr Gerät, dann Ihr Anbieter | MMS |
 
 **Der vereinheitlichte Posteingang liest Mitteilungen anderer Apps** (Signal,
@@ -94,6 +95,20 @@ WhatsApp, Telegram, Messenger, Discord, Instagram, Steam und NexLink Social)
 über die Android-Berechtigung für Mitteilungszugriff, die Sie ausdrücklich
 erteilen müssen. Diese Inhalte werden auf Ihrem Gerät gelesen, in Ihrem
 Posteingang angezeigt und **nirgendwohin übermittelt**.
+
+**Die Erfassung gesendeter Nachrichten ist optional und ausgeschaltet, bis Sie
+sie einschalten.** Sie nutzt die Android-Schnittstelle für Bedienungshilfen
+(Accessibility Service API) — NexLink ist keine Bedienungshilfe —, um den Text
+der Nachrichten zu lesen, die *Sie senden*, in Signal, WhatsApp, Telegram,
+Messenger, Instagram, Discord und Steam, sowie den Namen des Chats, und zwar nur,
+während eine dieser Apps auf Ihrem Bildschirm geöffnet ist. Mitteilungen
+enthalten Ihre eigenen Antworten nie; ohne diese Funktion zeigte der Posteingang
+nur eine Seite jedes Gesprächs. NexLink erklärt dies und bittet um Ihre
+Zustimmung, bevor es Sie zu den Android-Einstellungen für Bedienungshilfen
+führt, wo Sie die Funktion selbst einschalten. Aus keiner anderen App wird etwas
+gelesen; das Gelesene wird nur auf Ihrem Gerät gespeichert und **nirgendwohin
+übermittelt**. Sie können die Funktion jederzeit in den Einstellungen für
+Bedienungshilfen ausschalten.
 
 **Die Computer-Brücke ist die einzige Ausnahme, und sie ist optional.**
 Aktivieren Sie sie, werden Ihre Nachrichten an einen **von Ihnen selbst

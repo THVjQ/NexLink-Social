@@ -105,6 +105,7 @@ below stays on your device.
 | Your contacts | Your device only | To show names instead of numbers |
 | Your call log | Your device only | To show recent calls |
 | Notifications from other messaging apps | Your device only | The unified inbox reads them to build one list |
+| Messages you send in other messaging apps (optional) | Your device only | Sent-message capture shows your own replies in the inbox |
 | Photos, audio and video you attach | Your device, then your carrier | MMS |
 
 **The unified inbox reads notifications from other apps** (Signal, WhatsApp,
@@ -112,6 +113,18 @@ Telegram, Messenger, Discord, Instagram, Steam and NexLink Social) using
 Android's notification access permission, which you must grant explicitly. That
 content is read on your device, shown in your inbox, and **never transmitted
 anywhere**.
+
+**Sent-message capture is optional and off until you turn it on.** It uses
+Android's Accessibility Service API — NexLink is not an accessibility tool — to
+read the text of messages *you send* in Signal, WhatsApp, Telegram, Messenger,
+Instagram, Discord and Steam, and the name of the chat, only while one of those
+apps is open on your screen. Notifications never include your own replies, so
+without it the inbox would show only one side of each conversation. NexLink
+explains this and asks for your agreement before sending you to Android's
+Accessibility settings, where you switch it on yourself. It reads nothing from
+any other app, and what it reads is stored on your device only and **never
+transmitted anywhere**. You can switch it off at any time in Accessibility
+settings.
 
 **The Computer Bridge is the one exception, and it is opt-in.** If you enable it,
 your messages are sent to a **server you host yourself**, at an address you type
