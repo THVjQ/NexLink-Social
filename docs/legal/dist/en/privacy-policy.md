@@ -25,9 +25,7 @@
 
 # Privacy Policy — NexLink
 
-**Version 0.3.0-draft** · Applies to all NexLink Products · Not yet published · §4.7, §32
-
-> **Draft.** Not reviewed by a lawyer. See `docs/legal/README.md`.
+**Version 0.3.0** · Applies to all NexLink Products · Effective 16 November 2026
 
 *A plain-language summary is in the Transparency Note. Where the two differ this
 document governs — but they are written to agree, and a discrepancy is a bug
@@ -127,8 +125,8 @@ transmitted anywhere**. You can switch it off at any time in Accessibility
 settings.
 
 **The Computer Bridge is the one exception, and it is opt-in.** If you enable it,
-your messages are sent to a **server you host yourself**, at an address you type
-in. NexLink has no default server, no hardcoded key and no identity of the
+your messages, with the sender's phone number, are sent to a **server you host
+yourself**, at an address you type in. NexLink has no default server, no hardcoded key and no identity of the
 Operator's; the Operator receives nothing and can see nothing. Messages are
 encrypted to your own browser's public key before they leave the phone.
 

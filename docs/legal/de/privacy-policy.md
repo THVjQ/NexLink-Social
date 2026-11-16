@@ -1,9 +1,7 @@
 # Datenschutzerklärung — NexLink
 
-**Version 0.3.0-draft** · Gilt für alle NexLink-Produkte · Noch nicht veröffentlicht · §4.7, §32
+**Version 0.3.0** · Gilt für alle NexLink-Produkte · Gültig ab 16. November 2026
 
-> **Entwurf.** Nicht von einer Juristin oder einem Juristen geprüft. Siehe `docs/legal/README.md`.
->
 > **Massgeblich ist die englische Fassung.**
 
 *Eine Zusammenfassung in einfacher Sprache findet sich im Transparenzhinweis.
@@ -111,8 +109,8 @@ gelesen; das Gelesene wird nur auf Ihrem Gerät gespeichert und **nirgendwohin
 Bedienungshilfen ausschalten.
 
 **Die Computer-Brücke ist die einzige Ausnahme, und sie ist optional.**
-Aktivieren Sie sie, werden Ihre Nachrichten an einen **von Ihnen selbst
-betriebenen Server** unter einer von Ihnen eingegebenen Adresse gesendet.
+Aktivieren Sie sie, werden Ihre Nachrichten samt Telefonnummer des Absenders an
+einen **von Ihnen selbst betriebenen Server** unter einer von Ihnen eingegebenen Adresse gesendet.
 NexLink hat keinen voreingestellten Server, keinen fest hinterlegten Schlüssel
 und keine Identität des Betreibers; der Betreiber erhält nichts und sieht
 nichts. Nachrichten werden vor dem Verlassen des Telefons mit dem öffentlichen
